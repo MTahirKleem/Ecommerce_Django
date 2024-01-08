@@ -1,0 +1,15 @@
+<!-- myapp/templates/upload_csv.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CSV Upload</title>
+</head>
+<body>
+    <h2>Upload CSV File</h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form }}
+        <button type="submit">Upload</button>
+    </form>
+</body>
+</html>

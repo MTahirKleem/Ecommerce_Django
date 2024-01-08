@@ -1,0 +1,27 @@
+<!-- order_history.html -->
+
+{% extends 'base.html' %}
+
+{% block content %}
+  <div class="container mt-5">
+    <div class="row">
+      <div class="col-md-8 offset-md-2">
+        <h2>Order History</h2>
+        {% if orders %}
+          <ul class="list-group">
+            {% for order in orders %}
+              <li class="list-group-item">
+                <strong>{{ order.product_name }}</strong>
+                <br>
+                Order Date: {{ order.order_date }}
+                <!-- Add other order details here -->
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p>You haven't placed any orders yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

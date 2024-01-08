@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="page-banner-area page-banner-height-2" data-background="{% static 'assets/img/banner/page-banner-4.jpg' %}">
+    <div class="container">
+        <div class="col-xl-12">
+            <div class="page-banner-content text-center">
+                <h4 class="breadcrumb-title">My Profile</h4>
+                <div class="breadcrumb-two">
+                    <nav>
+                        <nav class="breadcrumb-trail breadcrumb">
+                            <ul class="breadcrumb-menu">
+                                <li class="breadcrumb-trail">
+                                    <a href="index.html"><span>Home</span></a>
+                                </li>
+                                <li class="trail-item">
+                                    <span>Profile</span>
+                                </li>
+                            </ul>
+                        </nav>
+                    </nav>
+               </div>
+           </div>
+        </div>
+    </div>
+</div>
+<!-- account area sart -->
+<div class="account-area mt-70 mb-70">
+    <div class="container">
+        <h3 class="display-4 mb-4">Update Your Profile</h3>
+        <form action="{% url 'profile_update' %}" method="post">
+            {% csrf_token %}
+            <div class="row">
+
+                <hr>
+                {% if messages %}
+                                {% for message in messages %}
+                                    {% if message.tags == 'success' %}
+                                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                            {{message}}
+                                        <button type="button" class="close" data-bs-dismiss="alert" aria-label="close">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                <div class="col-lg-6">
+                    <div class="basic-login mb-50">
+                        <label for="name">First Name <span>*</span></label>
+                        <input id="name" type="text" placeholder="Enter First Name" name="first_name" value="{{user.first_name}}">
+                        <label for="pass">Username <span>*</span></label>
+                        <input id="pass" type="text" placeholder="Enter Username" name="username" value="{{user.username}}">
+                            <label for="userpass">Password <span>*</span></label>
+                            <input type="password" id="userpass" placeholder="Fill only if you want to change password " name="password">
+                        <div class="row">
+                            <div class="col-6">
+                                <button type="submit" class="tp-in-btn w-100">Update Profile</button>
+                            </div>
+                            <div class="col-6">
+                                <a href="{% url 'logout' %}" class="btn btn-danger w-100 rounded">Logout</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="basic-login">
+                        <label for="username">Last Name <span>*</span></label>
+                        <input type="text" id="username" placeholder="Enter Your Last Name" name="last_name" value="{{user.lastname}}">
+                        <label for="email-id">Email Address<span>*</span></label>
+                        <input type="email" id="email-id" placeholder="Email address" name="email" value="{{user.email}}">
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

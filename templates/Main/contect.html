@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block content %}
+{% load static %}
+<main>
+        <!-- page-banner-area-start -->
+        <div class="page-banner-area page-banner-height" data-background="{% static 'assets/img/banner/page-banner-3.jpg' %}">
+            <div class="container">
+                <div class="row">
+                    <div class="col-xl-12">
+                        <div class="page-banner-content text-center">
+                            <h4 class="breadcrumb-title">Contact Us</h4>
+                            <div class="breadcrumb-two">
+                                <nav>
+                                   <nav class="breadcrumb-trail breadcrumbs">
+                                      <ul class="breadcrumb-menu">
+                                         <li class="breadcrumb-trail">
+                                            <a href="{% url 'home' %}"><span>Home</span></a>
+                                         </li>
+                                         <li class="trail-item">
+                                            <span>Contact Us</span>
+                                         </li>
+                                      </ul>
+                                   </nav>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- page-banner-area-end -->
+
+        <!-- location-area-start -->
+        <div class="location-area pt-70 pb-25">
+            <div class="container">
+                <div class="row mb-25">
+                    <div class="col-xl-12">
+                        <div class="abs-section-title text-center">
+                            <span>LOCATION STORE</span>
+                            <h4>Where We Are</h4>
+                            <p>The perfect way to enjoy brewing tea on low hanging fruit to identify. Duis autem vel eum iriure dolor in hendrerit <br> in vulputate velit esse molestie consequat, vel illum dolore eu feugiat nulla facilisis.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xl-3 col-lg-3 col-md-6">
+                        <div class="location-item mb-30">
+                            <div class="location-image w-img mb-20">
+                                <img src="assets/img/location/location-1.jpg" alt="">
+                            </div>
+                            <h6>Virtual University of Pakistan</h6>
+                            <div class="sm-item-loc sm-item-border mb-20">
+                                <div class="sml-icon mr-20">
+                                    <i class="fal fa-map-marker-alt"></i>
+                                </div>
+                                <div class="sm-content">
+                                    <span>Find us</span>
+                                    <p>M.A Jinnah Campus, Defence Road, Off Raiwind Road, Lahore</p>
+                                </div>
+                            </div>
+                            <div class="sm-item-loc sm-item-border mb-20">
+                                <div class="sml-icon mr-20">
+                                    <i class="fal fa-phone-alt"></i>
+                                </div>
+                                <div class="sm-content">
+                                    <span>Call us</span>
+                                    <p><a href="tel:+92-42-111-880-880, 0304-111-0880"> +92-42-111-880-880, 0304-111-0880</a></p>
+                                    <p><a href="tel:0800-880-88 (Toll Free)">0800-880-88 (Toll Free)</a></p>
+                                </div>
+                            </div>
+                            <div class="sm-item-loc mb-20">
+                                <div class="sml-icon mr-20">
+                                    <i class="fal fa-envelope"></i>
+                                </div>
+                                <div class="sm-content">
+                                    <span>Mail us</span>
+                                    <p><a href="mailto:gmm@vu.edu.pk">gmm@vu.edu.pk</a></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+
+</main>
+{% endblock %}

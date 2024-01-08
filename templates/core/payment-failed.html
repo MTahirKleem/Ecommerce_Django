@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <div class="container mt-5">
+    <div class="row">
+      <div class="col-md-6 offset-md-3 text-center">
+        <h2 class="text-danger">Payment Failed</h2>
+        <p class="lead">We're sorry, but your payment was not successful.</p>
+        <p>Please check your payment details and try again. If the issue persists, contact our customer support.</p>
+        <a href="{% url 'home' %}" class="btn btn-primary">Return to Home</a>
+      </div>
+    </div>
+  </div>
+{% endblock %}
