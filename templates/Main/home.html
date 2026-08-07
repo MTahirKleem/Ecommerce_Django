@@ -9,7 +9,7 @@
         <div class="slider-wrapper swiper-wrapper">
             {% for i in sliders %}
             <div class="single-slider swiper-slide slider-height d-flex align-items-center"
-                data-background="/{{i.Image}}">
+                data-background="{% if i.Image %}{{ i.Image.url }}{% endif %}">
                 <div class="container">
                     <div class="row">
                         <div class="col-xl-5">
@@ -98,7 +98,7 @@
             <div class="col-xl-4 col-lg-4 col-md-6">
                 <div class="banner__item p-relative w-img mb-30">
                     <div class="banner__img">
-                        <a href="product-details.html"><img src="/{{i.image}}" alt=""></a>
+                        <a href="product-details.html"><img src="{% if i.image %}{{ i.image.url }}{% endif %}" alt=""></a>
                     </div>
                     <div class="banner__content">
                         <h6><a href="product-details.html">{{i.Discount_Deal}}<br>{{i.Quote}}</a></h6>
@@ -135,7 +135,7 @@
                         <div class="product__thumb fix">
                             <div class="product-image w-img">
                                 <a href="{{ i.get_absolute_url }}">
-                                    <img src="{{i.featured_image}}" alt="product" style="height: 300px;">
+                                    <img src="{% if i.featured_image %}{{ i.featured_image.url }}{% endif %}" alt="{{ i.product_name }}" style="height: 300px; width: 100%; object-fit: cover;">
                                 </a>
                             </div>
                             <div class="product__offer">
@@ -220,14 +220,14 @@
                                     <div class="tab-pane fade show active" id="nav1" role="tabpanel"
                                         aria-labelledby="nav1-tab">
                                         <div class="product__modal-img w-img">
-                                            <img src="{{i.product_image_set.first.Image_url}}" alt="">
+                                            <img src="{% if i.featured_image %}{{ i.featured_image.url }}{% endif %}" alt="{{ i.product_name }}">
                                         </div>
                                     </div>
                                     {% for image in i.product_image_set.all%}
                                     <div class="tab-pane fade show" id="nav{{image.id}}" role="tabpanel"
                                         aria-labelledby="nav{{image.id}}-tab">
                                         <div class="product__modal-img w-img">
-                                            <img src="/{{image.Image_url}}" alt="">
+                                            <img src="{% if image.Image_url %}{{ image.Image_url.url }}{% endif %}" alt="">
                                         </div>
                                     </div>
                                     {% endfor %}
@@ -238,7 +238,7 @@
                                         <button class="nav-link " id="nav{{image.id}}-tab" data-bs-toggle="tab"
                                             data-bs-target="#nav{{image.id}}" type="button" role="tab"
                                             aria-controls="nav{{image.id}}" aria-selected="true">
-                                            <img src="/{{image.Image_url}}" alt="" style="width: 85px; height:85px;">
+                                            <img src="{% if image.Image_url %}{{ image.Image_url.url }}{% endif %}" alt="" style="width: 85px; height:85px; object-fit: cover;">
                                         </button>
                                     </li>
                                     {% endfor %}
@@ -338,7 +338,7 @@
                                         <div class="product__thumb fix">
                                             <div class="product-image w-img">
                                                 <a href="{{ i.get_absolute_url }}">
-                                                    <img src="/{{i.featured_image}}" alt="product"></a>
+                                                    <img src="{% if i.featured_image %}{{ i.featured_image.url }}{% endif %}" alt="{{ i.product_name }}" style="height: 220px; width: 100%; object-fit: cover;"></a>
                                             </div>
                                             <div class="product__offer">
                                                 <span class="discount">{{i.Discount}}%</span>
@@ -431,7 +431,7 @@
                                                     <ul class="nav nav-tabs" id="modalTab" role="tablist">
                                                         <li class="nav-item" role="presentation">
                                                             <button class="nav-link active" id="nav1-tab" data-bs-toggle="tab" data-bs-target="#nav1" type="button" role="tab" aria-controls="nav1" aria-selected="true">
-                                                                <img src="/{{i.featured_image}}" alt="" style="width: 400px; height:400px;">
+                                                                <img src="{% if i.featured_image %}{{ i.featured_image.url }}{% endif %}" alt="{{ i.product_name }}" style="width: 100%; height:400px; object-fit: cover;">
                                                             </button>
                                                         </li>
                                                     </ul>

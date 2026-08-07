@@ -9,7 +9,7 @@
                                                 <div class="product__thumb fix">
                                                     <div class="product-image w-img">
                                                         <a href="product-details.html">
-                                                            <img src="/{{i.featured_image}}" alt="product" height="200px;">
+                                                            <img src="{% if i.featured_image %}{{ i.featured_image.url }}{% endif %}" alt="{{ i.product_name }}" style="height: 200px; width: 100%; object-fit: cover;">
                                                         </a>
                                                     </div>
                                                     <div class="product__offer">

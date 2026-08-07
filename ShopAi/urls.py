@@ -37,17 +37,14 @@ urlpatterns = [
     # Django Auth URLs
     path('accounts/', include('django.contrib.auth.urls')),
 
-    # Cart URLs
-    path('cart/add/<int:id>/', views.cart_add, name='cart_add'),
-    path('cart/item_clear/<int:id>/', views.item_clear, name='item_clear'),
-    path('cart/item_increment/<int:id>/', views.item_increment, name='item_increment'),
-    path('cart/item_decrement/<int:id>/', views.item_decrement, name='item_decrement'),
+    # Cart URLs (MongoDB ObjectId PKs are 24-char hex strings, not ints)
+    path('cart/add/<str:id>/', views.cart_add, name='cart_add'),
+    path('cart/item_clear/<str:id>/', views.item_clear, name='item_clear'),
+    path('cart/item_increment/<str:id>/', views.item_increment, name='item_increment'),
+    path('cart/item_decrement/<str:id>/', views.item_decrement, name='item_decrement'),
     path('cart/cart_clear/', views.cart_clear, name='cart_clear'),
     path('cart/cart-detail/', views.cart_detail, name='cart_detail'),
     path('checkout', views.Checkout, name='checkout'),
-
-    # PayPal URL
-    path('paypal/', include('paypal.standard.ipn.urls')),
 
     # Payment URLs
     path('payment-completed/', payment_completed_view, name='payment_completed'),

@@ -129,7 +129,7 @@
                                                     <div class="cart__inner d-flex">
                                                         <div class="cart__thumb">
                                                             <a href="#f">
-                                                                <img src="{{value.featured_image}}" alt="">
+                                                                <img src="{{ value.image|default:value.featured_image }}" alt="{{ value.name }}" style="width: 60px; height: 60px; object-fit: cover;">
                                                             </a>
                                                         </div>
                                                         <div class="cart__details">

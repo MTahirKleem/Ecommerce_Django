@@ -1,34 +1,42 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+load_dotenv(BASE_DIR / '.env')
+
 # Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
+# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-eh8uyxk40jvqc$wrsw!k8tn4d^@5x^x&ef*h$&kuksi!h^zr-e'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+    if host.strip()
+]
 
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
+    'ShopAi.apps.MongoAdminConfig',
+    'ShopAi.apps.MongoAuthConfig',
+    'ShopAi.apps.MongoContentTypesConfig',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_mongodb_backend',
     'app',
     'ckeditor',
     'ckeditor_uploader',
     'cart',
-    'paypal.standard.ipn',
+    # paypal.standard.ipn uses AutoField PKs incompatible with MongoDB;
+    # checkout uses client-side PayPal JS instead.
 ]
 CART_SESSION_ID = 'cart'
 MIDDLEWARE = [
@@ -54,7 +62,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'cart.context_processor.cart_total_amount'
+                'app.context_processors.cart_total_amount',
+                'app.context_processors.site_settings',
             ],
         },
     },
@@ -62,18 +71,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'ShopAi.wsgi.application'
 
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
+# Database — local MongoDB
+# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django_mongodb_backend',
+        'HOST': os.getenv('MONGODB_URI', 'mongodb://127.0.0.1:27017/'),
+        'NAME': os.getenv('MONGODB_NAME', 'ecommerce'),
     }
 }
 
+DATABASE_ROUTERS = ['django_mongodb_backend.routers.MongoRouter']
+
 # Password validation
-# https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
+# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -91,7 +103,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalization
-# https://docs.djangoproject.com/en/4.2/topics/i18n/
+# https://docs.djangoproject.com/en/5.2/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
 
@@ -102,21 +114,30 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static')
 ]
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# Default primary key field type (MongoDB requires ObjectId)
+# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
-from ckeditor.configs import DEFAULT_CONFIG
+DEFAULT_AUTO_FIELD = 'django_mongodb_backend.fields.ObjectIdAutoField'
+
+MIGRATION_MODULES = {
+    'admin': 'mongo_migrations.admin',
+    'auth': 'mongo_migrations.auth',
+    'contenttypes': 'mongo_migrations.contenttypes',
+}
+
+from ckeditor.configs import DEFAULT_CONFIG  # noqa: E402, F401
 
 CKEDITOR_UPLOAD_PATH = "Media/uploads/"
 CKEDITOR_IMAGE_BACKEND = "pillow"
@@ -171,11 +192,12 @@ CKEDITOR_CONFIGS = {
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'home'
 
-EMAIL_USE_TLS = True
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_HOST_USER = 'bc190409066@vu.edu.pk'
-EMAIL_HOST_PASSWORD = '@Muhammad1122*'
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('1', 'true', 'yes')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 
-PAYPAL_RECEIVER_EMAIL = 'bc190409066@vu.edu.pk'
-PAYPAL_TEST = True
+PAYPAL_RECEIVER_EMAIL = os.getenv('PAYPAL_RECEIVER_EMAIL', '')
+PAYPAL_CLIENT_ID = os.getenv('PAYPAL_CLIENT_ID', '')
+PAYPAL_TEST = os.getenv('PAYPAL_TEST', 'True').lower() in ('1', 'true', 'yes')

@@ -16,7 +16,7 @@ class slider(models.Model):
     )
 
     # Slider fields
-    Image = models.ImageField(upload_to='media/slider_imgs')
+    Image = models.ImageField(upload_to='slider_imgs')
     Discount_Deal = models.CharField(choices=DISCOUNT_DEAL, max_length=100)
     SALE = models.IntegerField()
     Brand_Name = models.CharField(max_length=200)
@@ -32,7 +32,7 @@ class banner_area(models.Model):
     objects = models.Manager()
 
     # BannerArea fields
-    image = models.ImageField(upload_to='media/banner_img')
+    image = models.ImageField(upload_to='banner_img')
     Discount_Deal = models.CharField(max_length=100)
     Quote = models.CharField(max_length=100)
     Discount = models.IntegerField()
@@ -68,8 +68,8 @@ class Product(models.Model):
     # Product fields
     total_quantity = models.IntegerField()
     Availability = models.IntegerField()
-    featured_image = models.ImageField(upload_to='media/featured_image', blank=True, null=True,
-                                       default='media/featured_image/default.jpg')
+    featured_image = models.ImageField(upload_to='featured_image', blank=True, null=True,
+                                       default='featured_image/default.jpg')
     product_name = models.CharField(max_length=100)
     price = models.IntegerField()
     Discount = models.IntegerField()
@@ -81,6 +81,15 @@ class Product(models.Model):
 
     def __str__(self):
         return self.product_name
+
+    # Aliases expected by django-shopping-cart
+    @property
+    def name(self):
+        return self.product_name
+
+    @property
+    def image(self):
+        return self.featured_image
 
     def get_absolute_url(self):
         from django.urls import reverse
@@ -116,7 +125,7 @@ pre_save.connect(pre_save_post_receiver, Product)
 class Product_Image(models.Model):
     # Product_Image fields
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    Image_url = models.ImageField(upload_to='media/image_url')
+    Image_url = models.ImageField(upload_to='image_url')
 
 
 # Define the Additional_Information model
