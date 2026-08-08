@@ -46,6 +46,10 @@ urlpatterns = [
     path('cart/cart-detail/', views.cart_detail, name='cart_detail'),
     path('checkout', views.Checkout, name='checkout'),
 
+    # PayPal sandbox / live API
+    path('api/paypal/create-order/', views.paypal_create_order, name='paypal_create_order'),
+    path('api/paypal/capture-order/', views.paypal_capture_order, name='paypal_capture_order'),
+
     # Payment URLs
     path('payment-completed/', payment_completed_view, name='payment_completed'),
     path('payment-failed/', payment_failed_view, name='payment_failed'),

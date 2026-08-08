@@ -138,12 +138,23 @@ class Additional_Information(models.Model):
 
 # Define the Order model
 class Order(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('failed', 'Failed'),
+    )
+
     objects = models.Manager()
 
-    # Order fields
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    product_name = models.CharField(max_length=255)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    product_name = models.CharField(max_length=500)
     order_date = models.DateTimeField(auto_now_add=True)
+    paypal_order_id = models.CharField(max_length=100, blank=True, default='')
+    paypal_capture_id = models.CharField(max_length=100, blank=True, default='')
+    total_amount = models.CharField(max_length=50, blank=True, default='0')
+    currency = models.CharField(max_length=10, blank=True, default='USD')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    payer_email = models.EmailField(blank=True, default='')
 
     def __str__(self):
         return self.product_name

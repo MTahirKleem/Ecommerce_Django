@@ -200,4 +200,16 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 
 PAYPAL_RECEIVER_EMAIL = os.getenv('PAYPAL_RECEIVER_EMAIL', '')
 PAYPAL_CLIENT_ID = os.getenv('PAYPAL_CLIENT_ID', '')
+PAYPAL_CLIENT_SECRET = os.getenv('PAYPAL_CLIENT_SECRET', '')
+PAYPAL_MODE = os.getenv('PAYPAL_MODE', 'sandbox').lower()
+PAYPAL_CURRENCY = os.getenv('PAYPAL_CURRENCY', 'USD')
 PAYPAL_TEST = os.getenv('PAYPAL_TEST', 'True').lower() in ('1', 'true', 'yes')
+
+# Prefer explicit PAYPAL_BASE_URL from .env; otherwise derive from PAYPAL_MODE.
+_paypal_base_url = os.getenv('PAYPAL_BASE_URL', '').strip().rstrip('/')
+if _paypal_base_url:
+    PAYPAL_API_BASE = _paypal_base_url
+elif PAYPAL_MODE == 'live':
+    PAYPAL_API_BASE = 'https://api-m.paypal.com'
+else:
+    PAYPAL_API_BASE = 'https://api-m.sandbox.paypal.com'

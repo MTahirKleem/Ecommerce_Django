@@ -4,6 +4,8 @@ from django.conf import settings
 def site_settings(request):
     return {
         'PAYPAL_CLIENT_ID': getattr(settings, 'PAYPAL_CLIENT_ID', ''),
+        'PAYPAL_CURRENCY': getattr(settings, 'PAYPAL_CURRENCY', 'USD'),
+        'PAYPAL_MODE': getattr(settings, 'PAYPAL_MODE', 'sandbox'),
     }
 
 

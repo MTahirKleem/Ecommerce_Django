@@ -75,7 +75,8 @@
         <!-- checkout-area-start -->
         <section class="checkout-area pb-85">
             <div class="container">
-                <form action="#">
+                <form action="#" method="post">
+                    {% csrf_token %}
                     <div class="row">
                         <div class="col-lg-6">
                             <div class="checkbox-form">
@@ -512,29 +513,32 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                        {% for i in product %}
+                                        {% for key, item in cart.items %}
                                             <tr class="cart_item">
-                                                <td class="product-name">{{i.product_name}}<strong class="product-quantity"> × 1</strong>
+                                                <td class="product-name">{{ item.name }}<strong class="product-quantity"> × {{ item.quantity }}</strong>
                                                 </td>
                                                 <td class="product-total">
-                                                    <span class="amount">$165.00</span>
+                                                    <span class="amount">{{ paypal_currency }} {{ item.price }}</span>
                                                 </td>
                                             </tr>
-                                            {% endfor %}
+                                        {% empty %}
+                                            <tr>
+                                                <td colspan="2">Your cart is empty.</td>
+                                            </tr>
+                                        {% endfor %}
                                         </tbody>
                                         <tfoot>
                                             <tr class="cart-subtotal">
                                                 <th>Cart Subtotal</th>
-                                                <td><span class="amount">Rs. {{cart_total_amount}}</span></td>
+                                                <td><span class="amount">{{ paypal_currency }} {{ cart_total_amount }}</span></td>
                                             </tr>
                                             <tr class="shipping">
                                                 <th>Shipping</th>
                                                 <td>
                                                     <ul>
                                                         <li>
-
                                                             <label>
-                                                                <span class="amount">Rs. {{shipping_fee}}</span>
+                                                                <span class="amount">{{ paypal_currency }} {{ shipping_fee }}</span>
                                                             </label>
                                                         </li>
                                                     </ul>
@@ -542,7 +546,7 @@
                                             </tr>
                                             <tr class="order-total">
                                                 <th class="text-success">Order Total</th>
-                                                <td><strong><span class="text-success">Rs. {{cart_total_amount |add:shipping_fee}}</span></strong>
+                                                <td><strong><span class="text-success">{{ paypal_currency }} {{ order_total }}</span></strong>
                                                 </td>
                                             </tr>
                                         </tfoot>
@@ -550,17 +554,12 @@
                                 </div>
 
                                 <div class="payment-method">
-                                    <div class="mt-3">
-										<div id="paypal-button-container"></div>
-                                    </div>
-									{% if not user.is_authenticated %}
-									  <label for="cashOnDelivery">Cash on Delivery</label>
-									  <input type="checkbox" id="cashOnDelivery" name="payment_method" value="cash_on_delivery">
-									{% endif %}
-                                    </div>
-                                    <div class="order-button-payment mt-20">
-                                    <button type="submit" class="tp-btn-h1">Place order</button>
-                                    </div>
+                                    <p class="mb-2">
+                                        Pay securely with PayPal
+                                        {% if paypal_mode == 'sandbox' %}<strong>(Sandbox)</strong>{% endif %}
+                                    </p>
+                                    <div id="paypal-button-container"></div>
+                                    <p id="paypal-error" class="text-danger mt-2" style="display:none;"></p>
                                 </div>
                             </div>
                         </div>
@@ -570,41 +569,89 @@
         </section>
         <!-- checkout-area-end -->
 </main>
- <script>
-    var redirect_url = "{% url 'payment_completed' %}";
-    var amount = "{{cart_total_amount}}";
-    var shipping = "{{shipping_fee}}";
-    var TOTAL_AMOUNT = parseFloat(amount) + parseFloat(shipping);
+<script>
+(function () {
+    var createUrl = "{% url 'paypal_create_order' %}";
+    var captureUrl = "{% url 'paypal_capture_order' %}";
+    var csrfToken = "{{ csrf_token }}";
+    var errorBox = document.getElementById('paypal-error');
 
-    // Render the PayPal button into #paypal-button-container
+    function showError(message) {
+        if (!errorBox) return;
+        errorBox.style.display = 'block';
+        errorBox.textContent = message || 'Payment failed. Please try again.';
+    }
+
+    function clearError() {
+        if (!errorBox) return;
+        errorBox.style.display = 'none';
+        errorBox.textContent = '';
+    }
+
+    if (typeof paypal === 'undefined') {
+        showError('PayPal SDK failed to load. Check PAYPAL_CLIENT_ID in .env');
+        return;
+    }
 
     paypal.Buttons({
         style: {
-            color: 'blue',
-            shape: 'pill',
-            label: 'pay',
-            height: 40
+            color: 'gold',
+            shape: 'rect',
+            label: 'paypal',
+            height: 45
         },
-
-        // Call your server to set up the transaction
-        createOrder: function (data, actions) {
-            return actions.order.create({
-                purchase_units: [{
-                    amount: {
-                        value: TOTAL_AMOUNT,
+        createOrder: function () {
+            clearError();
+            return fetch(createUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({})
+            }).then(function (response) {
+                return response.json().then(function (data) {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Unable to create PayPal order');
                     }
-                }]
+                    return data.id;
+                });
+            }).catch(function (err) {
+                showError(err.message || 'Unable to create PayPal order');
+                throw err;
             });
         },
-
-        // Call your server to finalize the transaction
-        onApprove: function (data, actions) {
-            return actions.order.capture().then(function (details) {
-                alert('Payment Done By: ' + details.payer.name.given_name + '!');
-                window.location.href = redirect_url;
+        onApprove: function (data) {
+            clearError();
+            return fetch(captureUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ orderID: data.orderID })
+            }).then(function (response) {
+                return response.json().then(function (details) {
+                    if (!response.ok) {
+                        throw new Error(details.error || 'Unable to capture PayPal payment');
+                    }
+                    window.location.href = details.redirect_url || "{% url 'payment_completed' %}";
+                });
+            }).catch(function (err) {
+                // Stay on checkout and show the real error — do not auto-redirect.
+                showError(err.message || 'Payment capture failed. Your order was not marked as paid.');
             });
+        },
+        onError: function (err) {
+            showError(err && err.message ? err.message : 'PayPal checkout error');
+        },
+        onCancel: function () {
+            showError('Payment was cancelled. No charge was made.');
         }
     }).render('#paypal-button-container');
+})();
 </script>
 
 {% endblock %}

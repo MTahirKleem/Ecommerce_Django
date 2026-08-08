@@ -1,16 +1,32 @@
+import json
+import logging
+
 from app.models import slider, banner_area, Product, Category, SearchHistory
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
+from django.views.decorators.http import require_POST
 from app.models import Order
 from app.mongo_cart import MongoCart
+from app.paypal_api import (
+    PayPalAPIError,
+    amounts_equal,
+    capture_order,
+    cart_totals,
+    create_order,
+    extract_capture_payment,
+    format_amount,
+)
 from django.template.loader import render_to_string
 from src.utlis.utils import get_recommendations
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .models import UserInteraction, Product
 from django.http import JsonResponse, Http404
+
+logger = logging.getLogger(__name__)
 
 
 def BASE(request):
@@ -172,13 +188,285 @@ def cart_detail(request):
 
 
 def Checkout(request):
-    cart = request.session.get('cart')
-    shipping_fee = sum(i.get('shipping_fee', 0) or 0 for i in cart.values() if i)
-    context = {
-        'shipping_fee': shipping_fee,
+    cart = request.session.get(settings.CART_SESSION_ID, {}) or {}
+    if not cart:
+        messages.warning(request, 'Your cart is empty.')
+        return redirect('cart_detail')
 
+    totals = cart_totals(cart)
+    context = {
+        'cart': cart,
+        'shipping_fee': totals['shipping'],
+        'cart_total_amount': totals['subtotal'],
+        'order_total': totals['total'],
+        'paypal_currency': settings.PAYPAL_CURRENCY,
+        'paypal_mode': settings.PAYPAL_MODE,
     }
     return render(request, 'checkout/checkout.html', context)
+
+
+def _paypal_user(request):
+    return request.user if request.user.is_authenticated else None
+
+
+def _mark_order_failed(request, *, paypal_order_id, product_name, amount, currency, capture_id='', payer_email='', reason=''):
+    """Create or update a single Order row as failed (no duplicates for same paypal_order_id)."""
+    existing = Order.objects.filter(paypal_order_id=paypal_order_id).first() if paypal_order_id else None
+    if existing:
+        if existing.status != 'paid':
+            existing.status = 'failed'
+            if capture_id:
+                existing.paypal_capture_id = capture_id
+            if payer_email:
+                existing.payer_email = payer_email
+            existing.total_amount = amount
+            existing.currency = currency
+            existing.save()
+        logger.warning(
+            'PayPal order marked failed paypal_order_id=%s reason=%s',
+            paypal_order_id,
+            reason,
+        )
+        return existing
+
+    order = Order.objects.create(
+        user=_paypal_user(request),
+        product_name=product_name or 'ShopAi checkout',
+        paypal_order_id=paypal_order_id or '',
+        paypal_capture_id=capture_id or '',
+        total_amount=amount,
+        currency=currency,
+        status='failed',
+        payer_email=payer_email or '',
+    )
+    logger.warning(
+        'PayPal failed order created id=%s paypal_order_id=%s reason=%s',
+        order.id,
+        paypal_order_id,
+        reason,
+    )
+    return order
+
+
+@require_POST
+def paypal_create_order(request):
+    cart = request.session.get(settings.CART_SESSION_ID, {}) or {}
+    totals = cart_totals(cart)
+    if totals['total'] <= 0:
+        logger.warning('PayPal create-order rejected: empty cart')
+        return JsonResponse({'error': 'Cart is empty'}, status=400)
+
+    expected_amount = format_amount(totals['total'])
+    expected_currency = settings.PAYPAL_CURRENCY
+
+    try:
+        order = create_order(
+            amount=expected_amount,
+            currency=expected_currency,
+            description=totals['description'],
+        )
+    except PayPalAPIError as exc:
+        logger.error('PayPal create-order view failed: %s', exc)
+        return JsonResponse({'error': str(exc)}, status=400)
+
+    order_id = order.get('id')
+    if not order_id:
+        logger.error('PayPal create-order invalid response: missing id')
+        return JsonResponse({'error': 'PayPal did not return an order id'}, status=400)
+
+    request.session['pending_paypal_order_id'] = order_id
+    request.session['pending_paypal_amount'] = expected_amount
+    request.session['pending_paypal_currency'] = expected_currency
+    request.session.modified = True
+    return JsonResponse({'id': order_id})
+
+
+@require_POST
+def paypal_capture_order(request):
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except json.JSONDecodeError:
+        payload = {}
+
+    order_id = payload.get('orderID') or request.POST.get('orderID')
+    if not order_id:
+        logger.error('PayPal capture rejected: missing orderID')
+        return JsonResponse({'error': 'Missing PayPal orderID'}, status=400)
+
+    pending_id = request.session.get('pending_paypal_order_id')
+    if pending_id and pending_id != order_id:
+        logger.error(
+            'PayPal capture rejected: order mismatch pending=%s got=%s',
+            pending_id,
+            order_id,
+        )
+        return JsonResponse({'error': 'PayPal order mismatch'}, status=400)
+
+    cart = request.session.get(settings.CART_SESSION_ID, {}) or {}
+    totals = cart_totals(cart)
+    expected_amount = request.session.get('pending_paypal_amount') or format_amount(totals['total'])
+    expected_currency = (
+        request.session.get('pending_paypal_currency')
+        or settings.PAYPAL_CURRENCY
+    )
+    product_summary = totals['description']
+
+    try:
+        capture = capture_order(order_id)
+    except PayPalAPIError as exc:
+        _mark_order_failed(
+            request,
+            paypal_order_id=order_id,
+            product_name=product_summary,
+            amount=expected_amount,
+            currency=expected_currency,
+            reason=str(exc),
+        )
+        logger.error('PayPal capture API failed paypal_order_id=%s error=%s', order_id, exc)
+        return JsonResponse({'error': str(exc)}, status=400)
+
+    status = (capture.get('status') or '').upper()
+    capture_id, captured_amount, captured_currency, capture_status = extract_capture_payment(capture)
+    payer = capture.get('payer') or {}
+    payer_email = payer.get('email_address') or ''
+
+    if status != 'COMPLETED':
+        _mark_order_failed(
+            request,
+            paypal_order_id=order_id,
+            product_name=product_summary,
+            amount=expected_amount,
+            currency=expected_currency,
+            capture_id=capture_id,
+            payer_email=payer_email,
+            reason=f'status={status or "unknown"}',
+        )
+        logger.error(
+            'PayPal capture not COMPLETED paypal_order_id=%s status=%s',
+            order_id,
+            status or 'unknown',
+        )
+        return JsonResponse(
+            {'error': f'Payment not completed ({status or "unknown"})'},
+            status=400,
+        )
+
+    if not amounts_equal(captured_amount, expected_amount):
+        _mark_order_failed(
+            request,
+            paypal_order_id=order_id,
+            product_name=product_summary,
+            amount=expected_amount,
+            currency=expected_currency,
+            capture_id=capture_id,
+            payer_email=payer_email,
+            reason=f'amount mismatch captured={captured_amount} expected={expected_amount}',
+        )
+        logger.error(
+            'PayPal amount mismatch paypal_order_id=%s captured=%s expected=%s',
+            order_id,
+            captured_amount,
+            expected_amount,
+        )
+        return JsonResponse(
+            {'error': 'Payment amount mismatch. Order was not marked as paid.'},
+            status=400,
+        )
+
+    if (captured_currency or '').upper() != (expected_currency or '').upper():
+        _mark_order_failed(
+            request,
+            paypal_order_id=order_id,
+            product_name=product_summary,
+            amount=expected_amount,
+            currency=expected_currency,
+            capture_id=capture_id,
+            payer_email=payer_email,
+            reason=f'currency mismatch captured={captured_currency} expected={expected_currency}',
+        )
+        logger.error(
+            'PayPal currency mismatch paypal_order_id=%s captured=%s expected=%s',
+            order_id,
+            captured_currency,
+            expected_currency,
+        )
+        return JsonResponse(
+            {'error': 'Payment currency mismatch. Order was not marked as paid.'},
+            status=400,
+        )
+
+    if capture_status and capture_status != 'COMPLETED':
+        _mark_order_failed(
+            request,
+            paypal_order_id=order_id,
+            product_name=product_summary,
+            amount=expected_amount,
+            currency=expected_currency,
+            capture_id=capture_id,
+            payer_email=payer_email,
+            reason=f'capture_status={capture_status}',
+        )
+        logger.error(
+            'PayPal capture unit not COMPLETED paypal_order_id=%s capture_status=%s',
+            order_id,
+            capture_status,
+        )
+        return JsonResponse(
+            {'error': f'Payment capture not completed ({capture_status})'},
+            status=400,
+        )
+
+    existing = Order.objects.filter(paypal_order_id=order_id).first()
+    if existing and existing.status == 'paid':
+        logger.info('PayPal capture idempotent hit paypal_order_id=%s', order_id)
+        return JsonResponse({
+            'status': 'COMPLETED',
+            'order_id': str(existing.id),
+            'paypal_order_id': order_id,
+            'redirect_url': '/payment-completed/',
+        })
+
+    if existing:
+        existing.user = _paypal_user(request) or existing.user
+        existing.product_name = product_summary
+        existing.paypal_capture_id = capture_id or ''
+        existing.total_amount = expected_amount
+        existing.currency = expected_currency
+        existing.status = 'paid'
+        existing.payer_email = payer_email
+        existing.save()
+        order = existing
+    else:
+        order = Order.objects.create(
+            user=_paypal_user(request),
+            product_name=product_summary,
+            paypal_order_id=order_id,
+            paypal_capture_id=capture_id or '',
+            total_amount=expected_amount,
+            currency=expected_currency,
+            status='paid',
+            payer_email=payer_email,
+        )
+
+    request.session[settings.CART_SESSION_ID] = {}
+    request.session.pop('pending_paypal_order_id', None)
+    request.session.pop('pending_paypal_amount', None)
+    request.session.pop('pending_paypal_currency', None)
+    request.session.modified = True
+
+    logger.info(
+        'PayPal payment paid order_id=%s paypal_order_id=%s amount=%s %s',
+        order.id,
+        order_id,
+        expected_amount,
+        expected_currency,
+    )
+    return JsonResponse({
+        'status': 'COMPLETED',
+        'order_id': str(order.id),
+        'paypal_order_id': order_id,
+        'redirect_url': '/payment-completed/',
+    })
 
 
 def payment_completed_view(request):
@@ -189,6 +477,7 @@ def payment_failed_view(request):
     return render(request, 'core/payment-failed.html')
 
 
+@login_required(login_url='/accounts/login/')
 def order_history_view(request):
     orders = Order.objects.filter(user=request.user).order_by('-order_date')
     return render(request, "order_history.html", {'orders': orders})
